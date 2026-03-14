@@ -1,4 +1,4 @@
-package com.carriez.flutter_hbb
+package com.liuyaxiang.remoteapp
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
@@ -389,4 +389,3 @@ class FloatingWindowService : Service(), View.OnTouchListener {
         return false
     }
 }
-

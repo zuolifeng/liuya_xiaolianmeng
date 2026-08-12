@@ -126,10 +126,23 @@ jobs:
           VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
         shell: bash
         run: |
-          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
-            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do echo "$_1:"; echo "======"; cat "$_1"; echo "======"; done
+          set -o pipefail
+          LOG=/tmp/vcpkg-windows.log
+          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed" >"$LOG" 2>&1; then
+            echo "===== vcpkg FAILED — tail of run log ====="
+            tail -n 160 "$LOG"
+            echo "===== failed ports / error lines ====="
+            grep -inE "error: building|failed with|BUILD_FAILED|fatal error|configure: error|error:" "$LOG" | head -n 60
+            echo "===== per-port build error logs (tail) ====="
+            for p in $(grep -oE "[a-zA-Z0-9_.-]+:x64-windows-static failed" "$LOG" | sed 's/:.*//' | sort -u); do
+              for lf in "${VCPKG_ROOT}/buildtrees/${p}"/build-*.log; do
+                [ -f "$lf" ] || continue
+                echo "----- $lf (tail) -----"; tail -n 60 "$lf"; echo
+              done
+            done
             exit 1
           fi
+          echo "vcpkg windows deps installed OK"
 
       # 与本地已验证命令一致：先 cargo 出 librustdesk.dll，再 flutter 出 Lianmeng.exe
       - name: Build Lianmeng (cargo + flutter)
@@ -237,15 +250,28 @@ jobs:
 
       - name: Install vcpkg dependencies (android)
         run: |
+          set -o pipefail
           case ${{ matrix.job.target }} in
             aarch64-linux-android) ANDROID_TARGET=arm64-v8a ;;
             armv7-linux-androideabi) ANDROID_TARGET=armeabi-v7a ;;
             x86_64-linux-android) ANDROID_TARGET=x86_64 ;;
           esac
-          if ! ./flutter/build_android_deps.sh "${ANDROID_TARGET}"; then
-            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do echo "$_1:"; echo "======"; cat "$_1"; echo "======"; done
+          LOG=/tmp/vcpkg-android-${{ matrix.job.arch }}.log
+          if ! ./flutter/build_android_deps.sh "${ANDROID_TARGET}" >"$LOG" 2>&1; then
+            echo "===== vcpkg FAILED — tail of run log ====="
+            tail -n 160 "$LOG"
+            echo "===== failed ports / error lines ====="
+            grep -inE "error: building|failed with|BUILD_FAILED|fatal error|configure: error|error:" "$LOG" | head -n 60
+            echo "===== per-port build error logs (tail) ====="
+            for p in $(grep -oE "[a-zA-Z0-9_.-]+:(arm64-android|arm-neon-android|x64-android|arm-android) failed" "$LOG" | sed 's/:.*//' | sort -u); do
+              for lf in "${VCPKG_ROOT}/buildtrees/${p}"/build-*.log; do
+                [ -f "$lf" ] || continue
+                echo "----- $lf (tail) -----"; tail -n 60 "$lf"; echo
+              done
+            done
             exit 1
           fi
+          echo "vcpkg android deps installed OK"
         shell: bash
 
       - name: Restore bridge files

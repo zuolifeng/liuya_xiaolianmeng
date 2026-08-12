@@ -257,8 +257,14 @@ jobs:
             x86_64-linux-android) ANDROID_TARGET=x86_64 ;;
           esac
           LOG=/tmp/vcpkg-android-${{ matrix.job.arch }}.log
-          if ! ./flutter/build_android_deps.sh "${ANDROID_TARGET}" >"$LOG" 2>&1; then
-            echo "===== vcpkg FAILED — tail of run log ====="
+          ok=0
+          for attempt in 1 2 3; do
+            echo "=== vcpkg attempt $attempt / 3 ==="
+            if ./flutter/build_android_deps.sh "${ANDROID_TARGET}" >"$LOG" 2>&1; then ok=1; break; fi
+            echo "attempt $attempt failed (tail):"; tail -n 30 "$LOG"
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "===== vcpkg FAILED after retries — tail of run log ====="
             tail -n 160 "$LOG"
             echo "===== failed ports / error lines ====="
             grep -inE "error: building|failed with|BUILD_FAILED|fatal error|configure: error|error:" "$LOG" | head -n 60

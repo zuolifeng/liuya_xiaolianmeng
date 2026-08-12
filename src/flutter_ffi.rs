@@ -666,13 +666,6 @@ pub fn session_send_chat(session_id: SessionID, text: String) {
     }
 }
 
-// M-C: teacher -> student annotation payload (stroke / clear / view_state)
-pub fn session_send_annotation(session_id: SessionID, payload: String) {
-    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
-        session.send_annotation(payload);
-    }
-}
-
 // Terminal functions
 pub fn session_open_terminal(session_id: SessionID, terminal_id: i32, rows: u32, cols: u32) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
@@ -1099,11 +1092,6 @@ pub fn main_get_app_name() -> String {
 
 pub fn main_get_app_name_sync() -> SyncReturn<String> {
     SyncReturn(get_app_name())
-}
-
-/// 六牙象·连萌：界面显示名（可含中文），仅用于 UI 展示。
-pub fn main_get_app_display_name_sync() -> SyncReturn<String> {
-    SyncReturn(crate::common::get_app_display_name())
 }
 
 pub fn main_uri_prefix_sync() -> SyncReturn<String> {

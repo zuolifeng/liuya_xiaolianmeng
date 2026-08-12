@@ -46,8 +46,6 @@ pub fn core_main() -> Option<Vec<String>> {
     let mut _is_quick_support = false;
     let mut _is_flutter_invoke_new_connection = false;
     let mut no_server = false;
-    // 六牙象·连萌：静默启动标记（开机自启/学生端场景），主窗口起来后直接收进托盘。
-    let mut _is_start_minimized = false;
     let mut arg_exe = Default::default();
     for arg in std::env::args() {
         if i == 0 {
@@ -75,10 +73,6 @@ pub fn core_main() -> Option<Vec<String>> {
                 _is_quick_support = true;
             } else if arg == "--no-server" {
                 no_server = true;
-            } else if arg == "--start-minimized" {
-                // 六牙象·连萌：静默启动。刻意不放进 `args`，否则会被当成子命令分支处理；
-                // 只透传给 Flutter（kBootArgs），由 UI 层决定不显示主窗口。
-                _is_start_minimized = true;
             } else {
                 args.push(arg);
             }
@@ -94,11 +88,7 @@ pub fn core_main() -> Option<Vec<String>> {
         // We can assume that self service running means the server is also running on Windows.
         #[cfg(target_os = "windows")]
         let should_check_start_tray = crate::platform::is_self_service_running()
-            && crate::platform::is_cur_exe_the_installed()
-            // 六牙象·连萌：学生端的主窗口会被收进托盘（关闭/最小化都不退出进程），
-            // 托盘图标是唯一的召回入口。所以学生端必须无条件保证托盘常驻，
-            // 不能像上游那样要求"已安装为服务"，否则便携运行时窗口一藏就再也找不回来。
-            || hbb_common::config::is_incoming_only();
+            && crate::platform::is_cur_exe_the_installed();
         if should_check_start_tray && !crate::check_process("--tray", true) {
             #[cfg(target_os = "linux")]
             hbb_common::allow_err!(crate::platform::check_autostart_config());
@@ -136,11 +126,6 @@ pub fn core_main() -> Option<Vec<String>> {
     }
     if args.contains(&"--noinstall".to_string()) {
         args.clear();
-    }
-    // 六牙象·连萌：把静默启动标记透传给 Flutter 层（kBootArgs）。
-    #[cfg(feature = "flutter")]
-    if _is_start_minimized {
-        flutter_args.push("--start-minimized".to_string());
     }
     if args.len() > 0 {
         if args[0] == "--version" {
@@ -735,13 +720,6 @@ pub fn core_main() -> Option<Vec<String>> {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
                 crate::whiteboard::run();
-            }
-            return None;
-        } else if args[0] == "--privacy-notice" {
-            // 六牙象·连萌：屏幕被查看时的隐私提示标签（独立浮层进程）
-            #[cfg(target_os = "windows")]
-            {
-                crate::privacy_notice::run();
             }
             return None;
         } else if args[0] == "-gtk-sudo" {

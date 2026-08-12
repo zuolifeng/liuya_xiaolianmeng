@@ -388,11 +388,6 @@ class _DesktopTabState extends State<DesktopTab>
   void onWindowMinimize() {
     stateGlobal.setMinimized(true);
     stateGlobal.setMaximized(false);
-    // 六牙象·连萌：学生端主窗口"最小化"= 收进系统托盘（连任务栏按钮一起隐藏），
-    // 让学生桌面保持干净；托盘图标是唯一召回入口，其常驻由 core_main.rs 保证。
-    if (isMainWindow && bind.isIncomingOnly()) {
-      windowManager.hide();
-    }
     super.onWindowMinimize();
   }
 
@@ -645,10 +640,9 @@ class _DesktopTabState extends State<DesktopTab>
                         ),
                         Offstage(
                             offstage: !showTitle,
-                            // 六牙象·连萌：标题栏品牌名跟随显示名
-                            child: Text(
-                              appName,
-                              style: const TextStyle(fontSize: 13),
+                            child: const Text(
+                              "RustDesk",
+                              style: TextStyle(fontSize: 13),
                             ).marginOnly(left: 2))
                       ]).marginOnly(
                         left: 5,

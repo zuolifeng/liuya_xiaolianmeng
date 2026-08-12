@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
-import 'package:flutter_hbb/desktop/pages/desktop_classroom_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
@@ -44,17 +43,15 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
   _DesktopTabPageState() {
     RemoteCountState.init();
     Get.put<DesktopTabController>(tabController);
-    // 六牙象·连萌：教师端（isOutgoingOnly）使用课堂模式屏幕墙首页
-    final homePage = bind.isOutgoingOnly()
-        ? DesktopClassroomPage(key: const ValueKey(kTabLabelHomePage))
-        : DesktopHomePage(key: const ValueKey(kTabLabelHomePage));
     tabController.add(TabInfo(
         key: kTabLabelHomePage,
         label: kTabLabelHomePage,
         selectedIcon: Icons.home_sharp,
         unselectedIcon: Icons.home_outlined,
         closable: false,
-        page: homePage));
+        page: DesktopHomePage(
+          key: const ValueKey(kTabLabelHomePage),
+        )));
     if (bind.isIncomingOnly()) {
       tabController.onSelected = (key) {
         if (key == kTabLabelHomePage) {

@@ -1004,22 +1004,6 @@ pub fn get_app_name() -> String {
     hbb_common::config::APP_NAME.read().unwrap().clone()
 }
 
-/// 六牙象·连萌：界面显示名（可含中文）。为空时回落到 `get_app_name()`。
-/// 仅用于 UI 文案 / 窗口标题 / 托盘提示 / 关于页；
-/// 任何会落到文件路径、服务名、注册表、URI scheme 的地方必须用 `get_app_name()`。
-#[inline]
-pub fn get_app_display_name() -> String {
-    let name = hbb_common::config::APP_DISPLAY_NAME
-        .read()
-        .unwrap()
-        .clone();
-    if name.is_empty() {
-        get_app_name()
-    } else {
-        name
-    }
-}
-
 #[inline]
 pub fn is_rustdesk() -> bool {
     hbb_common::config::APP_NAME.read().unwrap().eq("RustDesk")
@@ -2218,13 +2202,6 @@ pub fn read_custom_client(config: &str) {
     if let Some(app_name) = data.remove("app-name") {
         if let Some(app_name) = app_name.as_str() {
             *config::APP_NAME.write().unwrap() = app_name.to_owned();
-        }
-    }
-
-    // 六牙象·连萌：允许通过 custom.txt 覆盖界面显示名（可含中文）
-    if let Some(display_name) = data.remove("app-display-name") {
-        if let Some(display_name) = display_name.as_str() {
-            *config::APP_DISPLAY_NAME.write().unwrap() = display_name.to_owned();
         }
     }
 

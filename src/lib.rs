@@ -56,10 +56,6 @@ mod tray;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod whiteboard;
 
-/// 六牙象·连萌：屏幕被查看时的隐私提示标签
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-mod privacy_notice;
-
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod updater;
 

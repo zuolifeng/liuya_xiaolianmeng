@@ -319,9 +319,6 @@ pub enum Data {
     ChatMessage {
         text: String,
     },
-    Annotation {
-        payload: String,
-    },
     SwitchPermission {
         name: String,
         enabled: bool,
@@ -477,9 +474,6 @@ pub enum Data {
     SocksWs(Option<Box<(Option<config::Socks5Server>, String)>>),
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     Whiteboard((String, crate::whiteboard::CustomEvent)),
-    // 六牙象·连萌：隐私提示标签
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    PrivacyNotice(crate::privacy_notice::NoticeEvent),
     ControlPermissionsRemoteModify(Option<bool>),
     #[cfg(target_os = "windows")]
     FileTransferEnabledState(Option<bool>),

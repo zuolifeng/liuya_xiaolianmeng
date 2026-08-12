@@ -36,7 +36,7 @@ class SettingsPage extends StatefulWidget implements PageShape {
   State<SettingsPage> createState() => _SettingsState();
 }
 
-final url = cfgUrl('website-url', 'https://rustdesk.com/');
+const url = 'https://rustdesk.com/';
 
 enum KeepScreenOn {
   never,
@@ -960,7 +960,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                 title: Text(translate("Version: ") + version),
                 value: Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(Uri.parse(cfgUrl('website-url', 'https://rustdesk.com/')).host,
+                  child: Text('rustdesk.com',
                       style: TextStyle(
                         decoration: TextDecoration.underline,
                       )),
@@ -985,7 +985,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             SettingsTile(
               title: Text(translate("Privacy Statement")),
               onPressed: (context) =>
-                  launchUrlString(cfgUrl('privacy-url', 'https://rustdesk.com/privacy.html')),
+                  launchUrlString('https://rustdesk.com/privacy.html'),
               leading: Icon(Icons.privacy_tip),
             )
           ],
@@ -1096,15 +1096,14 @@ void showAbout(OverlayDialogManager dialogManager) {
       title: Text(translate('About RustDesk')),
       content: Wrap(direction: Axis.vertical, spacing: 12, children: [
         Text('Version: $version'),
-        Text('基于 RustDesk 开源项目二次开发 (GPLv3)'),
         InkWell(
             onTap: () async {
-              final url = cfgUrl('website-url', 'https://rustdesk.com/');
+              const url = 'https://rustdesk.com/';
               await launchUrl(Uri.parse(url));
             },
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(Uri.parse(cfgUrl('website-url', 'https://rustdesk.com/')).host,
+              child: Text('rustdesk.com',
                   style: TextStyle(
                     decoration: TextDecoration.underline,
                   )),

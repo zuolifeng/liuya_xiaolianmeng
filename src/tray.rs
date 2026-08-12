@@ -56,9 +56,7 @@ fn make_tray() -> hbb_common::ResultType<()> {
     let tray_menu = Menu::new();
     let hide_stop_service = crate::ui_interface::get_builtin_option(
         hbb_common::config::keys::OPTION_HIDE_STOP_SERVICE,
-    ) == "Y"
-        // 六牙象·连萌：学生端托盘不提供"停止服务"，否则学生随手一点就脱离课堂监管。
-        || hbb_common::config::is_incoming_only();
+    ) == "Y";
     // The tray icon is only shown when the service is running, so we don't need to check
     // the `stop-service` option here.
     let quit_i = if !hide_stop_service {
@@ -72,18 +70,17 @@ fn make_tray() -> hbb_common::ResultType<()> {
     } else {
         tray_menu.append_items(&[&open_i]).ok();
     }
-    // 六牙象·连萌：托盘提示用"界面显示名"（可含中文），而不是内部 ASCII 标识符。
     let tooltip = |count: usize| {
         if count == 0 {
             format!(
                 "{} {}",
-                crate::get_app_display_name(),
+                crate::get_app_name(),
                 translate("Service is running".to_owned()),
             )
         } else {
             format!(
                 "{} - {}\n{}",
-                crate::get_app_display_name(),
+                crate::get_app_name(),
                 translate("Ready".to_owned()),
                 translate("{".to_string() + &format!("{count}") + "} sessions"),
             )

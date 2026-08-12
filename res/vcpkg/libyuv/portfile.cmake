@@ -1,17 +1,10 @@
 vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 
-# 六牙象·连萌：上游 vcpkg_from_git 走 https://chromium.googlesource.com/libyuv/libyuv，
-# 该域名在中国大陆网络不可达。改用 GitHub 官方镜像仓库 lemenkov/libyuv 的同 commit tarball
-# （codeload.github.com 实测可达，github.com 网页域名反而不通）。
-# Check https://chromium.googlesource.com/libyuv/libyuv/+/refs/heads/main/include/libyuv/version.h for a version!
-vcpkg_download_distfile(LIBYUV_ARCHIVE
-    URLS "https://codeload.github.com/lemenkov/libyuv/tar.gz/0faf8dd0e004520a61a603a4d2996d5ecc80dc3f"
-    FILENAME "libyuv-0faf8dd0e004520a61a603a4d2996d5ecc80dc3f.tar.gz"
-    SHA512 53e7428589b43a69d927cfe309c23ec15d482ff0025d2ef51be0cb00905cfbaad277e2974e4768928bde835fa4ba8e4d1516ac58d8dcf36f7bae357a386101d1
-)
-vcpkg_extract_source_archive(SOURCE_PATH
-    ARCHIVE "${LIBYUV_ARCHIVE}"
-    SOURCE_BASE "0faf8dd"
+vcpkg_from_git(
+    OUT_SOURCE_PATH SOURCE_PATH
+    URL https://chromium.googlesource.com/libyuv/libyuv
+    REF 0faf8dd0e004520a61a603a4d2996d5ecc80dc3f
+    # Check https://chromium.googlesource.com/libyuv/libyuv/+/refs/heads/main/include/libyuv/version.h for a version!
     PATCHES
         fix-cmakelists.patch
 )

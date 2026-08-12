@@ -2448,7 +2448,7 @@ class _AboutState extends State<_About> {
                         .marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString(cfgUrl('privacy-url', 'https://rustdesk.com/privacy.html'));
+                    launchUrlString('https://rustdesk.com/privacy.html');
                   },
                   child: Text(
                     translate('Privacy Statement'),
@@ -2456,15 +2456,12 @@ class _AboutState extends State<_About> {
                   ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString(cfgUrl('website-url', 'https://rustdesk.com'));
+                    launchUrlString('https://rustdesk.com');
                   },
                   child: Text(
                     translate('Website'),
                     style: linkStyle,
                   ).marginSymmetric(vertical: 4.0)),
-              SelectionArea(
-                  child: Text('基于 RustDesk 开源项目二次开发 (GPLv3)')
-                      .marginSymmetric(vertical: 4.0)),
               Container(
                 decoration: const BoxDecoration(color: Color(0xFF2c8cff)),
                 padding:

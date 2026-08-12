@@ -708,16 +708,6 @@ impl Connection {
                             conn.send(msg_out).await;
                             conn.chat_unanswered = false;
                         }
-                        ipc::Data::Annotation{payload} => {
-                            let mut misc = Misc::new();
-                            misc.set_annotation(Annotation {
-                                payload,
-                                ..Default::default()
-                            });
-                            let mut msg_out = Message::new();
-                            msg_out.set_misc(misc);
-                            conn.send(msg_out).await;
-                        }
                         ipc::Data::SwitchPermission{name, enabled} => {
                             log::info!("Change permission {} -> {}", name, enabled);
                             if &name == "keyboard" {
@@ -3473,9 +3463,6 @@ impl Connection {
                         self.send_to_cm(ipc::Data::ChatMessage { text: c.text });
                         self.chat_unanswered = true;
                         self.update_auto_disconnect_timer();
-                    }
-                    Some(misc::Union::Annotation(a)) => {
-                        self.send_to_cm(ipc::Data::Annotation { payload: a.payload });
                     }
                     Some(misc::Union::Option(o)) => {
                         if self.authed_conn_type() == Some(AuthConnType::Remote) {
@@ -6504,10 +6491,6 @@ mod raii {
                     .lock()
                     .unwrap()
                     .on_connection_open(conn_id);
-                // 六牙象·连萌：屏幕开始被查看，弹出隐私提示标签。
-                // 名字取对端在"设置-显示名"里填的昵称（老师姓名），为空时回落到设备号。
-                #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                crate::privacy_notice::register_viewer(conn_id, &lr.my_name, &lr.my_id);
             }
             Self(conn_id, conn_type)
         }
@@ -6658,8 +6641,6 @@ mod raii {
             {
                 use crate::whiteboard;
                 whiteboard::unregister_whiteboard(whiteboard::get_key_cursor(self.0));
-                // 六牙象·连萌：本条连接结束，从隐私提示名单里摘掉
-                crate::privacy_notice::unregister_viewer(self.0);
             }
         }
     }

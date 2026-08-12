@@ -227,9 +227,7 @@ pub fn translate_locale(name: String, locale: &str) -> String {
                 && !name.starts_with("upgrade_rustdesk_server_pro")
                 && name != "powered_by_me"
             {
-                // 六牙象·连萌：译文里的品牌词替换成"界面显示名"（可含中文），
-                // 而不是内部标识符 APP_NAME。
-                let app_name = crate::get_app_display_name();
+                let app_name = crate::get_app_name();
                 if !app_name.contains("RustDesk") {
                     s = s.replace("RustDesk", &app_name);
                 } else {

@@ -793,18 +793,6 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::Message(msg_out));
     }
 
-    // M-C: teacher -> student annotation payload (stroke / clear / view_state)
-    pub fn send_annotation(&self, payload: String) {
-        let mut misc = Misc::new();
-        misc.set_annotation(Annotation {
-            payload,
-            ..Default::default()
-        });
-        let mut msg_out = Message::new();
-        msg_out.set_misc(misc);
-        self.send(Data::Message(msg_out));
-    }
-
     // Terminal methods
     pub fn open_terminal(&self, terminal_id: i32, rows: u32, cols: u32) {
         let mut action = TerminalAction::new();

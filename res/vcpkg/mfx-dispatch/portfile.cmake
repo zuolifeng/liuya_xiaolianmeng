@@ -1,9 +1,9 @@
-# 六牙象·连萌：上游从 github.com/.../commit/<sha>.patch?full_index=1 在线抓补丁。
-# 该地址在中国大陆既连不上原站，各 GitHub 加速镜像也普遍对 /commit/*.patch 返回 403，
-# 而离线构建本来也不该依赖在线补丁。这里改为仓库内自带的等效补丁：
-# 上游 commit d6241243 的唯一作用就是给 src/mfxparser.cpp 补一行 #include <cstdint>
-# （该文件第 60 行用了 uint8_t，新版 GCC/Clang 不再隐式引入该头）。
-set(MISSING_CSTDINT_IMPORT_PATCH fix-missing-cstdint-import.patch)
+vcpkg_download_distfile(
+    MISSING_CSTDINT_IMPORT_PATCH
+    URLS https://github.com/lu-zero/mfx_dispatch/commit/d6241243f85a0d947bdfe813006686a930edef24.patch?full_index=1
+    FILENAME fix-missing-cstdint-import-d6241243f85a0d947bdfe813006686a930edef24.patch
+    SHA512 5d2ffc4ec2ba0e5859d01d2e072f75436ebc3e62e0f6580b5bb8b9f82fe588e7558a46a1fdfa0297a782c0eeb8f50322258d0dd9e41d927cc9be496727b61e44
+)
 
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH

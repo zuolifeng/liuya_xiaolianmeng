@@ -3036,8 +3036,7 @@ int versionCmp(String v1, String v2) {
 }
 
 String getWindowName({WindowType? overrideType}) {
-  // 六牙象·连萌：窗口标题使用显示名
-  final name = bind.mainGetAppDisplayNameSync();
+  final name = bind.mainGetAppNameSync();
   switch (overrideType ?? kWindowType) {
     case WindowType.Main:
       return name;
@@ -3737,13 +3736,6 @@ Color? disabledTextColor(BuildContext context, bool enabled) {
       : Theme.of(context).textTheme.titleLarge?.color?.withOpacity(0.6);
 }
 
-/// 六牙象·连萌：外链地址改为可由配置文件（RustDesk2.toml [options]）覆盖，
-/// 默认仍指向 rustdesk.com。打包后修改对应 option 即可换源。
-String cfgUrl(String key, String fallback) {
-  final v = bind.mainGetOptionSync(key: key);
-  return v.isNotEmpty ? v : fallback;
-}
-
 Widget loadPowered(BuildContext context) {
   if (bind.mainGetBuildinOption(key: "hide-powered-by-me") == 'Y') {
     return SizedBox.shrink();
@@ -3752,7 +3744,7 @@ Widget loadPowered(BuildContext context) {
     cursor: SystemMouseCursors.click,
     child: GestureDetector(
       onTap: () {
-        launchUrl(Uri.parse(cfgUrl('website-url', 'https://rustdesk.com')));
+        launchUrl(Uri.parse('https://rustdesk.com'));
       },
       child: Opacity(
           opacity: 0.5,
@@ -4195,9 +4187,7 @@ List<String> getPrinterNames() {
 String _appName = '';
 String get appName {
   if (_appName.isEmpty) {
-    // 六牙象·连萌：UI 一律用"显示名"（可含中文），
-    // 内部标识符请改用 bind.mainGetAppNameSync()
-    _appName = bind.mainGetAppDisplayNameSync();
+    _appName = bind.mainGetAppNameSync();
   }
   return _appName;
 }

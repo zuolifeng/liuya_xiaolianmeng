@@ -815,11 +815,6 @@ class RustdeskImpl {
     return js.context.callMethod('getByName', ['app-name']);
   }
 
-  // 六牙象·连萌：Web 端暂不区分显示名，回落到 app-name
-  String mainGetAppDisplayNameSync({dynamic hint}) {
-    return mainGetAppNameSync(hint: hint);
-  }
-
   String mainUriPrefixSync({dynamic hint}) {
     throw UnimplementedError("mainUriPrefixSync");
   }

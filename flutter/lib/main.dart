@@ -27,6 +27,7 @@ import 'common.dart';
 import 'consts.dart';
 import 'mobile/pages/home_page.dart';
 import 'mobile/pages/server_page.dart';
+import 'mobile/widgets/deploy_dialog.dart';
 import 'models/platform_model.dart';
 
 import 'package:flutter_hbb/plugin/handlers.dart'
@@ -162,7 +163,12 @@ void runMainApp(bool startService) async {
     // Check the startup argument, if we successfully handle the argument, we keep the main window hidden.
     final handledByUniLinks = await initUniLinks();
     debugPrint("handled by uni links: $handledByUniLinks");
-    if (handledByUniLinks || handleUriLink(cmdArgs: kBootArgs)) {
+    // 六牙象·连萌：`--start-minimized` 用于开机自启/静默启动（典型场景是学生机开机即待命），
+    // 此时不弹主窗口，直接以托盘形态运行。
+    final startMinimized = kBootArgs.contains('--start-minimized');
+    if (handledByUniLinks ||
+        handleUriLink(cmdArgs: kBootArgs) ||
+        startMinimized) {
       windowManager.hide();
     } else {
       windowManager.show();
@@ -499,9 +505,10 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         child: GetMaterialApp(
           navigatorKey: globalKey,
           debugShowCheckedModeBanner: false,
+          // 六牙象·连萌：应用标题使用显示名
           title: isWeb
-              ? '${bind.mainGetAppNameSync()} Web Client V2 (Preview)'
-              : bind.mainGetAppNameSync(),
+              ? '${bind.mainGetAppDisplayNameSync()} Web Client V2 (Preview)'
+              : bind.mainGetAppDisplayNameSync(),
           theme: MyTheme.lightTheme,
           darkTheme: MyTheme.darkTheme,
           themeMode: MyTheme.currentThemeMode(),
@@ -573,6 +580,14 @@ _registerEventHandler() {
   if (isDesktop) {
     platformFFI.registerEventHandler('native_ui', 'native_ui', (evt) async {
       NativeUiHandler.instance.onEvent(evt);
+    });
+  }
+  if (isAndroid) {
+    platformFFI.registerEventHandler(
+        'android_needs_deploy', 'android_needs_deploy', (_) async {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDeployPromptDialog();
+      });
     });
   }
 }

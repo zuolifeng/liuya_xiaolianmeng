@@ -1,4 +1,4 @@
-package com.liuyaxiang.remoteapp
+package com.carriez.flutter_hbb
 
 import ffi.FFI
 

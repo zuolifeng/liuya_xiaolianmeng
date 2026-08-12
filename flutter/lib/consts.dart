@@ -29,6 +29,10 @@ const String kPlatformAdditionsHasFileClipboard = "has_file_clipboard";
 const String kPlatformAdditionsSupportedPrivacyModeImpl =
     "supported_privacy_mode_impl";
 
+const String kPrivacyModeImplMag = 'privacy_mode_impl_mag';
+const String kPrivacyModeImplExcludeFromCapture =
+    'privacy_mode_impl_exclude_from_capture';
+
 const String kPeerPlatformWindows = "Windows";
 const String kPeerPlatformLinux = "Linux";
 const String kPeerPlatformMacOS = "Mac OS";
@@ -50,6 +54,7 @@ const String kAppTypeDesktopPortForward = "port forward";
 const String kAppTypeDesktopTerminal = "terminal";
 
 const String kWindowMainWindowOnTop = "main_window_on_top";
+const String kWindowRefreshCurrentUser = "refresh_current_user";
 const String kWindowGetWindowInfo = "get_window_info";
 const String kWindowGetScreenList = "get_screen_list";
 // This method is not used, maybe it can be removed.
@@ -113,6 +118,9 @@ const String kOptionTerminalPersistent = "terminal-persistent";
 const String kOptionEnableTunnel = "enable-tunnel";
 const String kOptionEnableRemoteRestart = "enable-remote-restart";
 const String kOptionEnableBlockInput = "enable-block-input";
+const String kOptionEnablePrivacyMode = "enable-privacy-mode";
+const String kOptionEnablePermChangeInAcceptWindow =
+    "enable-perm-change-in-accept-window";
 const String kOptionAllowRemoteConfigModification =
     "allow-remote-config-modification";
 const String kOptionVerificationMethod = "verification-method";
@@ -120,6 +128,7 @@ const String kOptionApproveMode = "approve-mode";
 const String kOptionAllowNumericOneTimePassword =
     "allow-numeric-one-time-password";
 const String kOptionCollapseToolbar = "collapse_toolbar";
+const String kOptionHideToolbar = "hide-toolbar";
 const String kOptionShowRemoteCursor = "show_remote_cursor";
 const String kOptionFollowRemoteCursor = "follow_remote_cursor";
 const String kOptionFollowRemoteWindow = "follow_remote_window";
@@ -137,6 +146,10 @@ const String kOptionSwapLeftRightMouse = "swap-left-right-mouse";
 const String kOptionCodecPreference = "codec-preference";
 const String kOptionRemoteMenubarDragLeft = "remote-menubar-drag-left";
 const String kOptionRemoteMenubarDragRight = "remote-menubar-drag-right";
+const String kOptionRemoteMenubarEdge = "remote-menubar-edge";
+const String kOptionRemoteMenubarFraction = "remote-menubar-frac";
+const String kOptionAllowMultiEdgeToolbarDock =
+    "allow-multi-edge-toolbar-dock";
 const String kOptionHideAbTagsPanel = "hideAbTagsPanel";
 const String kOptionRemoteMenubarState = "remoteMenubarState";
 const String kOptionPeerSorting = "peer-sorting";
@@ -161,6 +174,9 @@ const String kOptionShowVirtualMouse = "show-virtual-mouse";
 const String kOptionVirtualMouseScale = "virtual-mouse-scale";
 const String kOptionShowVirtualJoystick = "show-virtual-joystick";
 const String kOptionAllowAskForNoteAtEndOfConnection = "allow-ask-for-note";
+const String kOptionAllowMonitorSwitchMainToolbar = "allow-monitor-switch-main-toolbar";
+const String kOptionAllowMonitorSwitchMinToolbar = "allow-monitor-switch-min-toolbar";
+const String kOptionEnableShowTerminalExtraKeys = "enable-show-terminal-extra-keys";
 
 // network options
 const String kOptionAllowWebSocket = "allow-websocket";
@@ -172,13 +188,21 @@ const String kOptionEnableFlutterHttpOnRust = "enable-flutter-http-on-rust";
 const String kOptionHideServerSetting = "hide-server-settings";
 const String kOptionHideProxySetting = "hide-proxy-settings";
 const String kOptionHideWebSocketSetting = "hide-websocket-settings";
+const String kOptionHideStopService = "hide-stop-service";
 const String kOptionHideRemotePrinterSetting = "hide-remote-printer-settings";
 const String kOptionHideSecuritySetting = "hide-security-settings";
 const String kOptionHideNetworkSetting = "hide-network-settings";
 const String kOptionRemovePresetPasswordWarning =
     "remove-preset-password-warning";
+const String kOptionDisableChangePermanentPassword =
+    "disable-change-permanent-password";
+const String kOptionDisableChangeId = "disable-change-id";
+const String kOptionDisableUnlockPin = "disable-unlock-pin";
 const kHideUsernameOnCard = "hide-username-on-card";
 const String kOptionHideHelpCards = "hide-help-cards";
+const String kOptionAllowDeepLinkPassword = "allow-deep-link-password";
+const String kOptionAllowDeepLinkServerSettings =
+    "allow-deep-link-server-settings";
 
 const String kOptionToggleViewOnly = "view-only";
 const String kOptionToggleShowMyCursor = "show-my-cursor";
@@ -186,6 +210,9 @@ const String kOptionToggleShowMyCursor = "show-my-cursor";
 const String kOptionDisableFloatingWindow = "disable-floating-window";
 
 const String kOptionKeepScreenOn = "keep-screen-on";
+
+const String kOptionKeepAwakeDuringIncomingSessions = "keep-awake-during-incoming-sessions";
+const String kOptionKeepAwakeDuringOutgoingSessions = "keep-awake-during-outgoing-sessions";
 
 const String kOptionShowMobileAction = "showMobileActions";
 
@@ -250,6 +277,33 @@ const String kKeyTrackpadSpeed = 'trackpad-speed';
 const int kMinTrackpadSpeed = 10;
 const int kDefaultTrackpadSpeed = 100;
 const int kMaxTrackpadSpeed = 1000;
+
+// relative mouse mode
+/// Throttle duration (in milliseconds) for updating pointer lock center during
+/// window move/resize events. Lower values provide more responsive updates but
+/// may cause performance issues during rapid window operations.
+const int kDefaultPointerLockCenterThrottleMs = 100;
+
+/// Minimum server version required for relative mouse mode (MOUSE_TYPE_MOVE_RELATIVE).
+/// Servers older than this version will ignore relative mouse events.
+///
+/// IMPORTANT: This value must be kept in sync with the Rust constant
+/// `MIN_VERSION_RELATIVE_MOUSE_MODE` in `src/common.rs`.
+const String kMinVersionForRelativeMouseMode = '1.4.5';
+
+/// Maximum delta value for relative mouse movement.
+/// Large values could cause issues with i32 overflow on server side,
+/// and no reasonable mouse movement should exceed this bound.
+///
+/// IMPORTANT: This value must be kept in sync with the Rust constant
+/// `MAX_RELATIVE_MOUSE_DELTA` in `src/server/input_service.rs`.
+const int kMaxRelativeMouseDelta = 10000;
+
+/// Debounce duration (in milliseconds) for relative mouse mode toggle.
+/// This prevents double-toggle from race condition between Rust rdev grab loop
+/// and Flutter keyboard handling. Value should be small enough to allow
+/// intentional quick toggles but large enough to prevent accidental double-triggers.
+const int kRelativeMouseModeToggleDebounceMs = 150;
 
 // incomming (should be incoming) is kept, because change it will break the previous setting.
 const String kKeyPrinterIncomingJobAction = 'printer-incomming-job-action';

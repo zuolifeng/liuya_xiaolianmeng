@@ -437,7 +437,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
       String btnText = isToUpdate ? 'Update' : 'Download';
       GestureTapCallback onPressed = () async {
-        final Uri url = Uri.parse('https://rustdesk.com/download');
+        final Uri url = Uri.parse(cfgUrl('download-url', 'https://rustdesk.com/download'));
         await launchUrl(url);
       };
       if (isToUpdate) {
@@ -450,7 +450,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           "${translate("new-version-of-{${bind.mainGetAppNameSync()}}-tip")} (${bind.mainGetNewVersion()}).",
           btnText,
           onPressed,
-          closeButton: true);
+          closeButton: true,
+          help: isToUpdate ? 'Changelog' : null,
+          link: isToUpdate
+              ? '${cfgUrl('changelog-url', 'https://github.com/rustdesk/rustdesk/releases/tag')}/${bind.mainGetNewVersion()}'
+              : null);
     }
     if (systemError.isNotEmpty) {
       return buildInstallCard("", systemError, "", () {});
@@ -526,7 +530,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
             help: 'Help',
             link:
-                'https://rustdesk.com/docs/en/client/linux/#permissions-issue',
+                '${cfgUrl('docs-url', 'https://rustdesk.com/docs/en/client/linux')}/#permissions-issue',
             closeButton: true,
             closeOption: keyShowSelinuxHelpTip,
           ));
@@ -537,13 +541,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             "Warning", "wayland_experiment_tip", "", () async {},
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
             help: 'Help',
-            link: 'https://rustdesk.com/docs/en/client/linux/#x11-required'));
+            link: '${cfgUrl('docs-url', 'https://rustdesk.com/docs/en/client/linux')}/#x11-required'));
       } else if (bind.mainIsLoginWayland()) {
         LinuxCards.add(buildInstallCard("Warning",
             "Login screen using Wayland is not supported", "", () async {},
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
             help: 'Help',
-            link: 'https://rustdesk.com/docs/en/client/linux/#login-screen'));
+            link: '${cfgUrl('docs-url', 'https://rustdesk.com/docs/en/client/linux')}/#login-screen'));
       }
       if (LinuxCards.isNotEmpty) {
         return Column(
@@ -776,6 +780,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       }
       if (call.method == kWindowMainWindowOnTop) {
         windowOnTop(null);
+      } else if (call.method == kWindowRefreshCurrentUser) {
+        gFFI.userModel.refreshCurrentUser();
       } else if (call.method == kWindowGetWindowInfo) {
         final screen = (await window_size.getWindowInfo()).screen;
         if (screen == null) {
@@ -902,12 +908,17 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 }
 
 void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
-  final pw = await bind.mainGetPermanentPassword();
-  final p0 = TextEditingController(text: pw);
-  final p1 = TextEditingController(text: pw);
+  final p0 = TextEditingController(text: "");
+  final p1 = TextEditingController(text: "");
   var errMsg0 = "";
   var errMsg1 = "";
-  final RxString rxPass = pw.trim().obs;
+  final localPasswordSet =
+      (await bind.mainGetCommon(key: "local-permanent-password-set")) == "true";
+  final permanentPasswordSet =
+      (await bind.mainGetCommon(key: "permanent-password-set")) == "true";
+  final presetPassword = permanentPasswordSet && !localPasswordSet;
+  var canSubmit = false;
+  final RxString rxPass = "".obs;
   final rules = [
     DigitValidationRule(),
     UppercaseValidationRule(),
@@ -916,9 +927,21 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
     MinCharactersValidationRule(8),
   ];
   final maxLength = bind.mainMaxEncryptLen();
+  final statusTip = localPasswordSet
+      ? translate('password-hidden-tip')
+      : (presetPassword ? translate('preset-password-in-use-tip') : '');
+  final showStatusTipOnMobile =
+      statusTip.isNotEmpty && !isDesktop && !isWebDesktop;
 
   gFFI.dialogManager.show((setState, close, context) {
-    submit() {
+    updateCanSubmit() {
+      canSubmit = p0.text.trim().isNotEmpty || p1.text.trim().isNotEmpty;
+    }
+
+    submit() async {
+      if (!canSubmit) {
+        return;
+      }
       setState(() {
         errMsg0 = "";
         errMsg1 = "";
@@ -941,7 +964,13 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
         });
         return;
       }
-      bind.mainSetPermanentPassword(password: pass);
+      final ok = await bind.mainSetPermanentPasswordWithResult(password: pass);
+      if (!ok) {
+        setState(() {
+          errMsg0 = '${translate('Prompt')}: ${translate("Failed")}';
+        });
+        return;
+      }
       if (pass.isNotEmpty) {
         notEmptyCallback?.call();
       }
@@ -949,14 +978,20 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
     }
 
     return CustomAlertDialog(
-      title: Text(translate("Set Password")),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.key, color: MyTheme.accent),
+          Text(translate("Set Password")).paddingOnly(left: 10),
+        ],
+      ),
       content: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 500),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(
-              height: 8.0,
+            SizedBox(
+              height: showStatusTipOnMobile ? 0.0 : 6.0,
             ),
             Row(
               children: [
@@ -972,6 +1007,7 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
                       rxPass.value = value.trim();
                       setState(() {
                         errMsg0 = '';
+                        updateCanSubmit();
                       });
                     },
                     maxLength: maxLength,
@@ -983,9 +1019,9 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
               children: [
                 Expanded(child: PasswordStrengthIndicator(password: rxPass)),
               ],
-            ).marginSymmetric(vertical: 8),
-            const SizedBox(
-              height: 8.0,
+            ).marginOnly(top: 2, bottom: showStatusTipOnMobile ? 2 : 8),
+            SizedBox(
+              height: showStatusTipOnMobile ? 0.0 : 8.0,
             ),
             Row(
               children: [
@@ -999,6 +1035,7 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
                     onChanged: (value) {
                       setState(() {
                         errMsg1 = '';
+                        updateCanSubmit();
                       });
                     },
                     maxLength: maxLength,
@@ -1006,11 +1043,23 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
                 ),
               ],
             ),
-            const SizedBox(
-              height: 8.0,
+            if (statusTip.isNotEmpty)
+              Row(
+                children: [
+                  Icon(Icons.info, color: Colors.amber, size: 18)
+                      .marginOnly(right: 6),
+                  Expanded(
+                      child: Text(
+                    statusTip,
+                    style: const TextStyle(fontSize: 13, height: 1.1),
+                  ))
+                ],
+              ).marginOnly(top: 6, bottom: 2),
+            SizedBox(
+              height: showStatusTipOnMobile ? 0.0 : 8.0,
             ),
             Obx(() => Wrap(
-                  runSpacing: 8,
+                  runSpacing: showStatusTipOnMobile ? 2.0 : 8.0,
                   spacing: 4,
                   children: rules.map((e) {
                     var checked = e.validate(rxPass.value.trim());
@@ -1030,11 +1079,67 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
           ],
         ),
       ),
-      actions: [
-        dialogButton("Cancel", onPressed: close, isOutline: true),
-        dialogButton("OK", onPressed: submit),
-      ],
-      onSubmit: submit,
+      actions: (() {
+        final cancelButton = dialogButton(
+          "Cancel",
+          icon: Icon(Icons.close_rounded),
+          onPressed: close,
+          isOutline: true,
+        );
+        final removeButton = dialogButton(
+          "Remove",
+          icon: Icon(Icons.delete_outline_rounded),
+          onPressed: () async {
+            setState(() {
+              errMsg0 = "";
+              errMsg1 = "";
+            });
+            final ok =
+                await bind.mainSetPermanentPasswordWithResult(password: "");
+            if (!ok) {
+              setState(() {
+                errMsg0 = '${translate('Prompt')}: ${translate("Failed")}';
+              });
+              return;
+            }
+            close();
+          },
+          buttonStyle: ButtonStyle(
+              backgroundColor: MaterialStatePropertyAll(Colors.red)),
+        );
+        final okButton = dialogButton(
+          "OK",
+          icon: Icon(Icons.done_rounded),
+          onPressed: canSubmit ? submit : null,
+        );
+        if (!isDesktop && !isWebDesktop && localPasswordSet) {
+          return [
+            Align(
+              alignment: Alignment.centerRight,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    cancelButton,
+                    const SizedBox(width: 4),
+                    removeButton,
+                    const SizedBox(width: 4),
+                    okButton,
+                  ],
+                ),
+              ),
+            ),
+          ];
+        }
+        return [
+          cancelButton,
+          if (localPasswordSet) removeButton,
+          okButton,
+        ];
+      })(),
+      onSubmit: canSubmit ? submit : null,
       onCancel: close,
     );
   });

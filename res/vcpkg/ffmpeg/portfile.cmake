@@ -130,14 +130,18 @@ elseif(VCPKG_TARGET_IS_WINDOWS)
 --cc=cl \
 --enable-gpl \
 --enable-d3d11va \
---enable-cuda \
---enable-ffnvcodec \
---enable-hwaccel=h264_nvdec \
---enable-hwaccel=hevc_nvdec \
 --enable-hwaccel=h264_d3d11va \
 --enable-hwaccel=hevc_d3d11va \
 --enable-hwaccel=h264_d3d11va2 \
 --enable-hwaccel=hevc_d3d11va2 \
+")
+
+    if(VCPKG_TARGET_ARCHITECTURE STREQUAL "x86" OR VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
+        string(APPEND OPTIONS "\
+--enable-cuda \
+--enable-ffnvcodec \
+--enable-hwaccel=h264_nvdec \
+--enable-hwaccel=hevc_nvdec \
 --enable-amf \
 --enable-encoder=h264_amf \
 --enable-encoder=hevc_amf \
@@ -147,6 +151,7 @@ elseif(VCPKG_TARGET_IS_WINDOWS)
 --enable-encoder=h264_qsv \
 --enable-encoder=hevc_qsv \
 ")
+    endif()
 
     if(VCPKG_TARGET_ARCHITECTURE STREQUAL "x86")
         set(LIB_MACHINE_ARG /machine:x86)
@@ -154,6 +159,9 @@ elseif(VCPKG_TARGET_IS_WINDOWS)
     elseif(VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
         set(LIB_MACHINE_ARG /machine:x64)
         string(APPEND OPTIONS " --arch=x86_64")
+    elseif(VCPKG_TARGET_ARCHITECTURE STREQUAL "arm64")
+        set(LIB_MACHINE_ARG /machine:arm64)
+        string(APPEND OPTIONS " --arch=aarch64 --enable-cross-compile")
     else()
         message(FATAL_ERROR "Unsupported target architecture")
     endif()
@@ -317,8 +325,40 @@ set(FFMPEG_PKGCONFIG_MODULES libavutil)
 
 set(OPTIONS_CROSS "--enable-cross-compile")
 
-# ffmpeg needs --cross-prefix option to use appropriate tools for cross-compiling.
-if(VCPKG_DETECTED_CMAKE_C_COMPILER MATCHES "([^\/]*-)gcc$")
+if(VCPKG_TARGET_IS_ANDROID)
+    # NDK ships clang (not gcc). Its per-arch wrappers (aarch64-linux-android24-clang)
+    # are Windows .cmd batch files that cannot be invoked as $cc under MSYS sh, so we
+    # drive the generic clang.exe directly and inject the equivalent --target flag
+    # (the .cmd wrapper does nothing but prepend --target=<triple><api>).
+    get_filename_component(_ndk_bin "${VCPKG_DETECTED_CMAKE_C_COMPILER}" DIRECTORY)
+    if(VCPKG_TARGET_ARCHITECTURE STREQUAL "arm")
+        set(_ndk_triple "armv7a-linux-androideabi")
+    elseif(VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
+        set(_ndk_triple "x86_64-linux-android")
+    else()
+        set(_ndk_triple "aarch64-linux-android")
+    endif()
+    if(DEFINED ANDROID_NATIVE_API_LEVEL)
+        set(_ndk_api "${ANDROID_NATIVE_API_LEVEL}")
+    elseif(ANDROID_PLATFORM MATCHES "android-([0-9]+)")
+        set(_ndk_api "${CMAKE_MATCH_1}")
+    else()
+        set(_ndk_api "24")
+    endif()
+    set(_ndk_target "${_ndk_triple}${_ndk_api}")
+    string(APPEND OPTIONS_CROSS " --cc=${_ndk_bin}/clang.exe")
+    string(APPEND OPTIONS_CROSS " --cxx=${_ndk_bin}/clang++.exe")
+    # Use clang as the linker driver (not ld.lld directly): vcpkg's ldflags.rsp
+    # carries clang-frontend flags (-Wl,--build-id, --target) that ld.lld can't parse.
+    string(APPEND OPTIONS_CROSS " --ld=${_ndk_bin}/clang.exe")
+    string(APPEND OPTIONS_CROSS " --ar=llvm-ar")
+    string(APPEND OPTIONS_CROSS " --nm=llvm-nm")
+    string(APPEND OPTIONS_CROSS " --strip=llvm-strip")
+    string(APPEND OPTIONS_CROSS " --ranlib=llvm-ranlib")
+    string(APPEND OPTIONS_CROSS " --extra-cflags=--target=${_ndk_target}")
+    string(APPEND OPTIONS_CROSS " --extra-ldflags=--target=${_ndk_target}")
+    vcpkg_add_to_path("${_ndk_bin}")
+elseif(VCPKG_DETECTED_CMAKE_C_COMPILER MATCHES "([^\/]*-)gcc$")
     string(APPEND OPTIONS_CROSS " --cross-prefix=${CMAKE_MATCH_1}")
 endif()
 

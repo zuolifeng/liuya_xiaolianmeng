@@ -1,7 +1,7 @@
 /// Url handler based on dbus
 ///
 /// Note:
-/// On linux, we use dbus to communicate multiple rustdesk process.
+/// On linux, we use dbus to communicate between multiple rustdesk processes.
 /// [Flutter]: handle uni links for linux
 use dbus::blocking::Connection;
 use dbus_crossroads::{Crossroads, IfaceBuilder};
@@ -23,7 +23,7 @@ struct DbusError(String);
 
 impl fmt::Display for DbusError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "RustDesk DBus Error: {}", self.0)
+        write!(f, "Lianmeng DBus Error: {}", self.0)
     }
 }
 

@@ -19,10 +19,18 @@ if(DEFINED ENV{USE_AOM_391})
             aom-install.diff
     )
 else()
-    vcpkg_from_git(
-        OUT_SOURCE_PATH SOURCE_PATH
-        URL "https://aomedia.googlesource.com/aom"
-        REF 10aece4157eb79315da205f39e19bf6ab3ee30d0 # 3.12.1
+    # 六牙象·连萌：上游 vcpkg_from_git 走 https://aomedia.googlesource.com/aom，
+    # 该域名在中国大陆网络不可达（curl 长时间超时，git fetch 报 error 128）。
+    # 改用 AOM 官方发布 tarball（storage.googleapis.com/aom-releases，实测可达），
+    # 内容与 tag v3.12.1 (10aece4157eb79315da205f39e19bf6ab3ee30d0) 一致。
+    vcpkg_download_distfile(AOM_ARCHIVE
+        URLS "https://storage.googleapis.com/aom-releases/libaom-3.12.1.tar.gz"
+        FILENAME "libaom-3.12.1.tar.gz"
+        SHA512 27521fe1cffd89a8875552f1758de89c19a47aa1640ee20930ac420a03d964eb9ae10c4b0f55e518c37d4d59f06657aee2bfa84eedad35683648bd658e06da73
+    )
+    vcpkg_extract_source_archive(SOURCE_PATH
+        ARCHIVE "${AOM_ARCHIVE}"
+        SOURCE_BASE "3.12.1"
         PATCHES
             aom-uninitialized-pointer.diff
             # aom-avx2.diff
@@ -32,6 +40,11 @@ else()
 endif()
 
 set(aom_target_cpu "")
+set(aom_asm_compiler "")
+if(VCPKG_TARGET_IS_ANDROID AND VCPKG_TARGET_ARCHITECTURE STREQUAL "arm64")
+  # 六牙象·连萌: NDK 不提供 'as', 用 NDK clang wrapper 作 ASM 编译器 (自带 --target=aarch64-linux-android28)
+  set(aom_asm_compiler "-DCMAKE_ASM_COMPILER=$ENV{ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android28-clang.cmd")
+endif()
 if(VCPKG_TARGET_IS_UWP OR (VCPKG_TARGET_IS_WINDOWS AND VCPKG_TARGET_ARCHITECTURE MATCHES "^arm"))
     # UWP + aom's assembler files result in weirdness and build failures
     # Also, disable assembly on ARM and ARM64 Windows to fix compilation issues.
@@ -46,6 +59,7 @@ vcpkg_cmake_configure(
     SOURCE_PATH ${SOURCE_PATH}
     OPTIONS
         ${aom_target_cpu}
+        ${aom_asm_compiler}
         -DENABLE_DOCS=OFF
         -DENABLE_EXAMPLES=OFF
         -DENABLE_TESTDATA=OFF

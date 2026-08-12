@@ -3,7 +3,8 @@ mod keyboard;
 pub mod platform;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub use platform::{
-    get_cursor, get_cursor_data, get_cursor_pos, get_focused_display, start_os_service,
+    clip_cursor, get_cursor, get_cursor_data, get_cursor_pos, get_focused_display,
+    set_cursor_pos, start_os_service,
 };
 #[cfg(not(any(target_os = "ios")))]
 /// cbindgen:ignore
@@ -23,7 +24,6 @@ pub mod ipc;
 #[cfg(not(any(
     target_os = "android",
     target_os = "ios",
-    feature = "cli",
     feature = "flutter"
 )))]
 pub mod ui;
@@ -37,11 +37,9 @@ pub mod flutter;
 pub mod flutter_ffi;
 use common::*;
 mod auth_2fa;
-#[cfg(feature = "cli")]
-pub mod cli;
 #[cfg(not(target_os = "ios"))]
 mod clipboard;
-#[cfg(not(any(target_os = "android", target_os = "ios", feature = "cli")))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod core_main;
 mod custom_server;
 mod lang;
@@ -57,6 +55,10 @@ mod tray;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod whiteboard;
+
+/// 六牙象·连萌：屏幕被查看时的隐私提示标签
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+mod privacy_notice;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod updater;

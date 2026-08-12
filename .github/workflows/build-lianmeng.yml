@@ -1,0 +1,367 @@
+# ============================================================
+# 六牙象·连萌 — 自动构建工作流（GitHub Actions）
+# 仅在打 tag（v*）或手动 workflow_dispatch 时运行。
+# 产出：Windows 教师/学生端 (Lianmeng.exe + librustdesk.dll)
+#       Android 学生端 APK (aarch64 / armv7 / x86_64)
+# 源码已 fork 并改自 RustDesk 1.4.9（GPLv3），请保持仓库 public。
+# ============================================================
+
+name: Build Lianmeng (Windows + Android)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  # —— 工具链版本（与 RustDesk 1.4.9 官方 CI 对齐）——
+  RUST_VERSION: "1.75"            # 1.78 有 i128 ABI 变更会导致 sciter/部分依赖异常
+  FLUTTER_VERSION: "3.24.5"
+  ANDROID_FLUTTER_VERSION: "3.24.5"
+  NDK_VERSION: "r28c"
+  CARGO_NDK_VERSION: "3.1.2"
+  LLVM_VERSION: "15.0.6"
+  VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
+  VERSION: "1.4.9"
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  # 仅当本次运行由 tag 触发时才发布 Release（手动触发只上传 artifact 便于调试）
+  TAG_NAME: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+
+jobs:
+  # ----------------------------------------------------------
+  # 生成 Rust<->Flutter 桥接代码（generated_bridge.dart 未入库，
+  # 每次构建必须先生成，否则 cargo / flutter 编译失败）
+  # ----------------------------------------------------------
+  generate-bridge:
+    uses: ./.github/workflows/bridge.yml
+
+  # ----------------------------------------------------------
+  # Windows：教师端 + 学生端同源，靠启动参数区分，均产出 Lianmeng.exe
+  # ----------------------------------------------------------
+  build-windows:
+    name: Windows x86_64 (Lianmeng.exe + librustdesk.dll)
+    needs: [generate-bridge]
+    runs-on: windows-2022
+    steps:
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore bridge files
+        uses: actions/download-artifact@v4
+        with:
+          name: bridge-artifact
+          path: ./
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: ${{ env.LLVM_VERSION }}
+
+      - name: Install flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          architecture: x64
+
+      # RustDesk 的 Flutter 3.24 需要用其自编译的 engine（hwcodec/纹理相关）
+      - name: Replace engine with rustdesk custom flutter engine
+        shell: pwsh
+        run: |
+          flutter doctor -v
+          flutter precache --windows
+          Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile windows-x64-release.zip
+          Expand-Archive -Path windows-x64-release.zip -DestinationPath windows-x64-release
+          mv -Force windows-x64-release/*  C:/hostedtoolcache/windows/flutter/stable-${{ env.FLUTTER_VERSION }}-x64/bin/cache/artifacts/engine/windows-x64-release/
+
+      - name: Patch flutter (dropdown filter)
+        shell: bash
+        run: |
+          cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
+          cd $(dirname $(dirname $(which flutter)))
+          [[ "3.24.5" == ${{env.FLUTTER_VERSION}} ]] && git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-pc-windows-msvc
+          components: "rustfmt"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: lianmeng-windows
+
+      - name: Setup vcpkg (GitHub Actions binary cache)
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: C:\vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install vcpkg dependencies
+        env:
+          VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
+        shell: bash
+        run: |
+          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do echo "$_1:"; echo "======"; cat "$_1"; echo "======"; done
+            exit 1
+          fi
+
+      # 与本地已验证命令一致：先 cargo 出 librustdesk.dll，再 flutter 出 Lianmeng.exe
+      - name: Build Lianmeng (cargo + flutter)
+        shell: bash
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          cargo build --release --features flutter,hwcodec,vram
+          flutter build windows --release
+
+      - name: Package release folder
+        shell: bash
+        run: |
+          REL=flutter/build/windows/x64/runner/Release
+          ls -l "$REL" | head
+          tar -a -cf Lianmeng-${{ env.VERSION }}-windows-x86_64.zip -C "$REL" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lianmeng-windows-x86_64
+          path: Lianmeng-${{ env.VERSION }}-windows-x86_64.zip
+
+      - name: Publish Release
+        if: env.TAG_NAME != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: false
+          tag_name: ${{ env.TAG_NAME }}
+          files: Lianmeng-${{ env.VERSION }}-windows-x86_64.zip
+
+  # ----------------------------------------------------------
+  # Android：学生端 APK（aarch64 / armv7 / x86_64）
+  # ----------------------------------------------------------
+  build-android:
+    name: Android APK (${{ matrix.job.arch }})
+    needs: [generate-bridge]
+    runs-on: ubuntu-24.04
+    env:
+      ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { arch: aarch64, target: aarch64-linux-android, reltype: release }
+          - { arch: armv7,    target: armv7-linux-androideabi, reltype: release }
+          - { arch: x86_64,   target: x86_64-linux-android, reltype: release }
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          swap-storage: false
+
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake curl gcc-multilib git g++ g++-multilib \
+            libayatana-appindicator3-dev libasound2-dev libc6-dev libclang-dev libunwind-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgtk-3-dev libpam0g-dev \
+            libpulse-dev libva-dev libxcb-randr0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxdo-dev libxfixes-dev llvm-dev nasm ninja-build openjdk-17-jdk-headless \
+            pkg-config tree wget
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ env.ANDROID_FLUTTER_VERSION }}
+
+      - name: Patch flutter (dropdown filter)
+        run: |
+          cd $(dirname $(dirname $(which flutter)))
+          [[ "3.24.5" == ${{env.ANDROID_FLUTTER_VERSION}} ]] && git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
+
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          add-to-path: true
+
+      - name: Setup vcpkg (GitHub Actions binary cache)
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: /opt/artifacts/vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install vcpkg dependencies (android)
+        run: |
+          case ${{ matrix.job.target }} in
+            aarch64-linux-android) ANDROID_TARGET=arm64-v8a ;;
+            armv7-linux-androideabi) ANDROID_TARGET=armeabi-v7a ;;
+            x86_64-linux-android) ANDROID_TARGET=x86_64 ;;
+          esac
+          if ! ./flutter/build_android_deps.sh "${ANDROID_TARGET}"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do echo "$_1:"; echo "======"; cat "$_1"; echo "======"; done
+            exit 1
+          fi
+        shell: bash
+
+      - name: Restore bridge files
+        uses: actions/download-artifact@v4
+        with:
+          name: bridge-artifact
+          path: ./
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: "rustfmt"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: lianmeng-android
+          key: ${{ matrix.job.target }}
+
+      # 编译 librustdesk.so
+      - name: Build rustdesk lib
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          rustup target add ${{ matrix.job.target }}
+          cargo install cargo-ndk --version ${{ env.CARGO_NDK_VERSION }} --locked
+          case ${{ matrix.job.target }} in
+            aarch64-linux-android)
+              ./flutter/ndk_arm64.sh
+              mkdir -p ./flutter/android/app/src/main/jniLibs/arm64-v8a
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
+              ;;
+            armv7-linux-androideabi)
+              ./flutter/ndk_arm.sh
+              mkdir -p ./flutter/android/app/src/main/jniLibs/armeabi-v7a
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
+              ;;
+            x86_64-linux-android)
+              ./flutter/ndk_x64.sh
+              mkdir -p ./flutter/android/app/src/main/jniLibs/x86_64
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86_64/librustdesk.so
+              ;;
+          esac
+        shell: bash
+
+      # 编译并打包 APK
+      - name: Build rustdesk apk
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        run: |
+          export PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH
+          sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
+          sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
+          case ${{ matrix.job.target }} in
+            aarch64-linux-android)
+              cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
+              pushd flutter
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm64 --split-per-abi
+              mv build/app/outputs/flutter-apk/app-arm64-v8a-${{ matrix.job.reltype }}.apk ../Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+              ;;
+            armv7-linux-androideabi)
+              cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/arm-linux-androideabi/libc++_shared.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
+              pushd flutter
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm --split-per-abi
+              mv build/app/outputs/flutter-apk/app-armeabi-v7a-${{ matrix.job.reltype }}.apk ../Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+              ;;
+            x86_64-linux-android)
+              cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/libc++_shared.so ./flutter/android/app/src/main/jniLibs/x86_64/
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86_64/librustdesk.so
+              pushd flutter
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-x64 --split-per-abi
+              mv build/app/outputs/flutter-apk/app-x86_64-${{ matrix.job.reltype }}.apk ../Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+              ;;
+          esac
+          popd
+          mkdir -p signed-apk && mv Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk signed-apk/
+        shell: bash
+
+      - name: Setup sign tool version variable
+        if: env.ANDROID_SIGNING_KEY != null
+        shell: bash
+        run: |
+          BUILD_TOOL_VERSION=$(ls /usr/local/lib/android/sdk/build-tools/ | tail -n 1)
+          echo "ANDROID_SIGN_TOOL_VERSION=$BUILD_TOOL_VERSION" >> $GITHUB_ENV
+          echo "Last build tool version is: $BUILD_TOOL_VERSION"
+
+      - name: Sign app APK
+        if: env.ANDROID_SIGNING_KEY != null
+        uses: r0adkll/sign-android-release@v1
+        id: sign-apk
+        with:
+          releaseDirectory: ./signed-apk
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
+          alias: ${{ secrets.ANDROID_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: ${{ env.ANDROID_SIGN_TOOL_VERSION }}
+
+      - name: Upload artifact (signed)
+        if: env.ANDROID_SIGNING_KEY != null
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lianmeng-android-${{ matrix.job.arch }}
+          path: ${{ steps.sign-apk.outputs.signedReleaseFile }}
+
+      - name: Upload artifact (unsigned)
+        if: env.ANDROID_SIGNING_KEY == null
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lianmeng-android-${{ matrix.job.arch }}
+          path: signed-apk/Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+
+      - name: Publish Release (signed)
+        if: env.TAG_NAME != '' && env.ANDROID_SIGNING_KEY != null
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: false
+          tag_name: ${{ env.TAG_NAME }}
+          files: ${{ steps.sign-apk.outputs.signedReleaseFile }}
+
+      - name: Publish Release (unsigned)
+        if: env.TAG_NAME != '' && env.ANDROID_SIGNING_KEY == null
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: false
+          tag_name: ${{ env.TAG_NAME }}
+          files: signed-apk/Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk

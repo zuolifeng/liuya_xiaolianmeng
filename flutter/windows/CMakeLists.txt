@@ -4,7 +4,9 @@ project(rustdesk LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "rustdesk")
+# 六牙象·连萌：必须与 hbb_common::config::APP_NAME 完全一致，
+# 否则安装/自升级时按 APP_NAME 拼出的 exe 路径会找不到文件。
+set(BINARY_NAME "Lianmeng")
 
 # Explicitly opt into modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

@@ -29,6 +29,8 @@ macro_rules! my_println{
 /// If it returns [`Some`], then the process will continue, and flutter gui will be started.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn core_main() -> Option<Vec<String>> {
+    // 品牌化：统一应用名，控制配置目录/服务名/URI scheme/显示名等运行时派生
+    *config::APP_NAME.write().unwrap() = "xiaolianmeng".to_owned();
     if !crate::common::global_init() {
         return None;
     }

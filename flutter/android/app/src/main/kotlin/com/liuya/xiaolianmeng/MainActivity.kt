@@ -1,4 +1,4 @@
-package com.carriez.flutter_hbb
+package com.liuya.xiaolianmeng
 
 /**
  * Handle events from flutter

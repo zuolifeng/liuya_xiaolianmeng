@@ -1,12 +1,12 @@
 # ============================================================
 # 六牙象·连萌 — 自动构建工作流（GitHub Actions）
 # 仅在打 tag（v*）或手动 workflow_dispatch 时运行。
-# 产出：Windows 教师/学生端 (Lianmeng.exe + librustdesk.dll)
+# 产出：Windows 教师/学生端 (xiaolianmeng.exe + librustdesk.dll)
 #       Android 学生端 APK (aarch64 / armv7 / x86_64)
 # 源码已 fork 并改自 RustDesk 1.4.9（GPLv3），请保持仓库 public。
 # ============================================================
 
-name: Build Lianmeng (Windows + Android)
+name: Build xiaolianmeng (Windows + Android)
 
 on:
   push:
@@ -37,10 +37,10 @@ jobs:
     uses: ./.github/workflows/bridge.yml
 
   # ----------------------------------------------------------
-  # Windows：教师端 + 学生端同源，靠启动参数区分，均产出 Lianmeng.exe
+  # Windows：教师端 + 学生端同源，靠启动参数区分，均产出 xiaolianmeng.exe
   # ----------------------------------------------------------
   build-windows:
-    name: Windows x86_64 (Lianmeng.exe + librustdesk.dll)
+    name: Windows x86_64 (xiaolianmeng.exe + librustdesk.dll)
     needs: [generate-bridge]
     runs-on: windows-2022
     steps:
@@ -112,7 +112,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: lianmeng-windows
+          prefix-key: xiaolianmeng-windows
 
       - name: Setup vcpkg (GitHub Actions binary cache)
         uses: lukka/run-vcpkg@v11
@@ -144,8 +144,8 @@ jobs:
           fi
           echo "vcpkg windows deps installed OK"
 
-      # 与本地已验证命令一致：先 cargo 出 librustdesk.dll，再 flutter 出 Lianmeng.exe
-      - name: Build Lianmeng (cargo + flutter)
+      # 与本地已验证命令一致：先 cargo 出 librustdesk.dll，再 flutter 出 xiaolianmeng.exe
+      - name: Build xiaolianmeng (cargo + flutter)
         shell: bash
         run: |
           rustup target add x86_64-pc-windows-msvc
@@ -159,13 +159,14 @@ jobs:
         run: |
           REL=flutter/build/windows/x64/runner/Release
           ls -l "$REL" | head
-          tar -a -cf Lianmeng-${{ env.VERSION }}-windows-x86_64.zip -C "$REL" .
+          if [ -f "$REL/rustdesk.exe" ]; then mv "$REL/rustdesk.exe" "$REL/xiaolianmeng.exe"; fi
+          tar -a -cf xiaolianmeng-${{ env.VERSION }}-windows-x86_64.zip -C "$REL" .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Lianmeng-windows-x86_64
-          path: Lianmeng-${{ env.VERSION }}-windows-x86_64.zip
+          name: xiaolianmeng-windows-x86_64
+          path: xiaolianmeng-${{ env.VERSION }}-windows-x86_64.zip
 
       - name: Publish Release
         if: env.TAG_NAME != ''
@@ -173,7 +174,7 @@ jobs:
         with:
           prerelease: false
           tag_name: ${{ env.TAG_NAME }}
-          files: Lianmeng-${{ env.VERSION }}-windows-x86_64.zip
+          files: xiaolianmeng-${{ env.VERSION }}-windows-x86_64.zip
 
   # ----------------------------------------------------------
   # Android：学生端 APK（aarch64 / armv7 / x86_64）
@@ -296,7 +297,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: lianmeng-android
+          prefix-key: xiaolianmeng-android
           key: ${{ matrix.job.target }}
 
       # 编译 librustdesk.so
@@ -340,25 +341,25 @@ jobs:
               cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
               pushd flutter
               flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm64 --split-per-abi
-              mv build/app/outputs/flutter-apk/app-arm64-v8a-${{ matrix.job.reltype }}.apk ../Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+              mv build/app/outputs/flutter-apk/app-arm64-v8a-${{ matrix.job.reltype }}.apk ../xiaolianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
               ;;
             armv7-linux-androideabi)
               cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/arm-linux-androideabi/libc++_shared.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/
               cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
               pushd flutter
               flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm --split-per-abi
-              mv build/app/outputs/flutter-apk/app-armeabi-v7a-${{ matrix.job.reltype }}.apk ../Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+              mv build/app/outputs/flutter-apk/app-armeabi-v7a-${{ matrix.job.reltype }}.apk ../xiaolianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
               ;;
             x86_64-linux-android)
               cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/libc++_shared.so ./flutter/android/app/src/main/jniLibs/x86_64/
               cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86_64/librustdesk.so
               pushd flutter
               flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-x64 --split-per-abi
-              mv build/app/outputs/flutter-apk/app-x86_64-${{ matrix.job.reltype }}.apk ../Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+              mv build/app/outputs/flutter-apk/app-x86_64-${{ matrix.job.reltype }}.apk ../xiaolianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
               ;;
           esac
           popd
-          mkdir -p signed-apk && mv Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk signed-apk/
+          mkdir -p signed-apk && mv xiaolianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk signed-apk/
         shell: bash
 
       - name: Setup sign tool version variable
@@ -387,15 +388,15 @@ jobs:
         if: env.ANDROID_SIGNING_KEY != null
         uses: actions/upload-artifact@v4
         with:
-          name: Lianmeng-android-${{ matrix.job.arch }}
+          name: xiaolianmeng-android-${{ matrix.job.arch }}
           path: ${{ steps.sign-apk.outputs.signedReleaseFile }}
 
       - name: Upload artifact (unsigned)
         if: env.ANDROID_SIGNING_KEY == null
         uses: actions/upload-artifact@v4
         with:
-          name: Lianmeng-android-${{ matrix.job.arch }}
-          path: signed-apk/Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+          name: xiaolianmeng-android-${{ matrix.job.arch }}
+          path: signed-apk/xiaolianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
 
       - name: Publish Release (signed)
         if: env.TAG_NAME != '' && env.ANDROID_SIGNING_KEY != null
@@ -411,4 +412,4 @@ jobs:
         with:
           prerelease: false
           tag_name: ${{ env.TAG_NAME }}
-          files: signed-apk/Lianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+          files: signed-apk/xiaolianmeng-${{ env.VERSION }}-${{ matrix.job.arch }}.apk

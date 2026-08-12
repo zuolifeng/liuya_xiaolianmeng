@@ -75,14 +75,26 @@ jobs:
           architecture: x64
 
       # RustDesk 的 Flutter 3.24 需要用其自编译的 engine（hwcodec/纹理相关）
+      # 注意：subosito/flutter-action 实际把 Flutter 装在 $FLUTTER_ROOT（含 /flutter/ 一层），
+      # 不能硬编码路径，否则 mv 目标目录不存在而失败。这里用 flutter 命令反解根目录。
       - name: Replace engine with rustdesk custom flutter engine
         shell: pwsh
         run: |
           flutter doctor -v
           flutter precache --windows
-          Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile windows-x64-release.zip
-          Expand-Archive -Path windows-x64-release.zip -DestinationPath windows-x64-release
-          mv -Force windows-x64-release/*  C:/hostedtoolcache/windows/flutter/stable-${{ env.FLUTTER_VERSION }}-x64/bin/cache/artifacts/engine/windows-x64-release/
+          $engineZip = "windows-x64-release.zip"
+          Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile $engineZip -ErrorAction Stop
+          if (-not (Test-Path $engineZip) -or (Get-Item $engineZip).Length -lt 1MB) {
+            Write-Error "engine zip download failed or too small"; exit 1
+          }
+          Expand-Archive -Path $engineZip -DestinationPath windows-x64-release -Force
+          # 反解 Flutter 根目录：flutter 可执行文件在 <root>/bin/flutter[.bat]，取两级父目录
+          $flutterRoot = (Get-Command flutter).Source | Split-Path | Split-Path
+          $engineDir = Join-Path $flutterRoot "bin/cache/artifacts/engine/windows-x64-release"
+          Write-Host "FLUTTER_ROOT=$flutterRoot"
+          Write-Host "engineDir=$engineDir"
+          if (-not (Test-Path $engineDir)) { Write-Error "engine dest dir missing: $engineDir"; exit 1 }
+          mv -Force windows-x64-release/* $engineDir/
 
       - name: Patch flutter (dropdown filter)
         shell: bash

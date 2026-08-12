@@ -17,21 +17,15 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          # Default bridge for every platform still on Flutter 3.24.5 (generated with 3.22.3).
+          # 唯一 bridge 变体：覆盖 Windows x86_64 + Android 三架构（均用 Flutter 3.24.5 构建）。
+          # 已删除原 Windows arm64 专用变体(Flutter 3.44.0)——本 fork 不编 Windows arm64，
+          # 原 matrix 双跑导致 generate-bridge 时间/账单翻倍，且 bridge-artifact-flutter-3.44 无人取用。
           - {
               target: x86_64-unknown-linux-gnu,
               os: ubuntu-22.04,
               extra-build-args: "",
               flutter-version: "3.22.3",
               artifact-name: "bridge-artifact",
-            }
-          # Dedicated bridge for the Windows arm64 build (Flutter 3.44); runs in parallel.
-          - {
-              target: x86_64-unknown-linux-gnu,
-              os: ubuntu-22.04,
-              extra-build-args: "",
-              flutter-version: "3.44.0",
-              artifact-name: "bridge-artifact-flutter-3.44",
             }
     steps:
       - name: Checkout source code

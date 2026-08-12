@@ -114,10 +114,13 @@ jobs:
         with:
           prefix-key: xiaolianmeng-windows
 
+      # 注意：不能用 C:\vcpkg —— windows-2022 runner 已预装一份 vcpkg 在 C:\vcpkg，
+      # 与其同目录会触发 “outside repository” 与 bootstrap 冲突导致构建失败。
+      # 改用 runner.workspace（与官方 RustDesk 1.4.9 CI 默认一致），在仓库之外、不与预装冲突。
       - name: Setup vcpkg (GitHub Actions binary cache)
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgDirectory: C:\vcpkg
+          vcpkgDirectory: ${{ runner.workspace }}/vcpkg
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
@@ -247,7 +250,7 @@ jobs:
       - name: Setup vcpkg (GitHub Actions binary cache)
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgDirectory: /opt/artifacts/vcpkg
+          vcpkgDirectory: ${{ runner.workspace }}/vcpkg
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 

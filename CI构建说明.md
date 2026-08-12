@@ -45,24 +45,37 @@ git push -u origin lianmeng
 
 | 名称 | 内容 |
 |------|------|
-| `ANDROID_SIGNING_KEY` | keystore 文件的 **base64**（见下） |
-| `ANDROID_ALIAS` | keystore 别名 |
+| `ANDROID_SIGNING_KEY` | keystore 文件的 **base64**（见下，PKCS12 格式） |
+| `ANDROID_ALIAS` | keystore 别名（本仓库固定 `lianmeng`） |
 | `ANDROID_KEY_STORE_PASSWORD` | keystore 密码 |
 | `ANDROID_KEY_PASSWORD` | 密钥密码 |
 
-生成 keystore 并转 base64：
+> ⚠️ Secret 名**必须带 `ANDROID_` 前缀**（即 `ANDROID_ALIAS` / `ANDROID_KEY_STORE_PASSWORD` / `ANDROID_KEY_PASSWORD`），工作流按此读取；漏前缀会导致签名步骤被跳过、出 debug 包。
+
+生成 keystore 并转 base64。本机无 JDK/keytool 时，可用 Git Bash 自带的 `openssl` 生成 **PKCS12** keystore（`r0adkll/sign-android-release` 底层用 `apksigner`，原生兼容 PKCS12）：
 
 ```bash
-# 生成（按提示填密码/别名/信息）
-keytool -genkey -v -keystore lianmeng.keystore -alias lianmeng \
-  -keyalg RSA -keysize 2048 -validity 10000
+# Windows 风格路径（openssl 是原生二进制，只认 C:/...，不认 /c/...）
+KEYDIR="C:/Users/Administrator/.lianmeng_keys"
+mkdir -p "$KEYDIR"
 
-# 转 base64（Windows 用 certutil，mac/Linux 用 base64）
-base64 -w0 lianmeng.keystore > lianmeng.keystore.b64   # Linux/mac
-# 把 .b64 文本内容粘进 ANDROID_SIGNING_KEY
+# 1) 自签名证书 + 私钥（RSA 2048，有效期 10000 天）
+openssl req -x509 -newkey rsa:2048 -nodes \
+  -keyout "$KEYDIR/key.pem" -out "$KEYDIR/cert.pem" \
+  -days 10000 -subj "/CN=liuyaxiang/O=liuyaxiang/C=CN"
+
+# 2) 打包为 PKCS12（alias=lianmeng，导出密码同时作为 store/key 密码）
+PASS=$(openssl rand -hex 12)   # 或自定一个强密码
+openssl pkcs12 -export \
+  -in "$KEYDIR/cert.pem" -inkey "$KEYDIR/key.pem" \
+  -name lianmeng -out "$KEYDIR/lianmeng.p12" -passout "pass:$PASS"
+
+# 3) 转 base64（单行）供 GitHub Secret
+base64 -w0 "$KEYDIR/lianmeng.p12" > "$KEYDIR/lianmeng.p12.b64"
+# 把 .b64 文本内容粘进 ANDROID_SIGNING_KEY；PASS 粘进另两个密码 Secret
 ```
 
-> 私钥/keystore 绝不提交进仓库（已在根仓库 `.gitignore` 规则内），只走 Secrets。
+> 私钥/keystore 绝不提交进仓库（已在根仓库 `.gitignore` 规则内），只走 Secrets。生成的 `lianmeng.p12` 请本地备份，遗失将无法更新已发布 APK。
 
 ---
 

@@ -150,7 +150,9 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-msvc
           cargo build --release --features flutter,hwcodec,vram
+          pushd flutter
           flutter build windows --release
+          popd
 
       - name: Package release folder
         shell: bash

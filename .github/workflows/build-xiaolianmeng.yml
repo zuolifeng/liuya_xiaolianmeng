@@ -131,8 +131,16 @@ jobs:
         run: |
           set -o pipefail
           LOG=/tmp/vcpkg-windows.log
-          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed" >"$LOG" 2>&1; then
-            echo "===== vcpkg FAILED — tail of run log ====="
+          ok=0
+          # 上游源偶发 503（如 sourceforge 的 libjpeg-turbo），vcpkg 幂等，重试只重下失败端口
+          for attempt in 1 2 3 4 5 6; do
+            echo "=== vcpkg attempt $attempt / 6 ==="
+            if $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed" >"$LOG" 2>&1; then ok=1; break; fi
+            echo "attempt $attempt failed (tail):"; tail -n 30 "$LOG"
+            sleep 30
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "===== vcpkg FAILED after retries — tail of run log ====="
             tail -n 160 "$LOG"
             echo "===== failed ports / error lines ====="
             grep -inE "error: building|failed with|BUILD_FAILED|fatal error|configure: error|error:" "$LOG" | head -n 60
@@ -264,10 +272,12 @@ jobs:
           esac
           LOG=/tmp/vcpkg-android-${{ matrix.job.arch }}.log
           ok=0
-          for attempt in 1 2 3; do
-            echo "=== vcpkg attempt $attempt / 3 ==="
+          # 上游源偶发 503（如 sourceforge 的 libjpeg-turbo），vcpkg 幂等，重试只重下失败端口
+          for attempt in 1 2 3 4 5 6; do
+            echo "=== vcpkg attempt $attempt / 6 ==="
             if ./flutter/build_android_deps.sh "${ANDROID_TARGET}" >"$LOG" 2>&1; then ok=1; break; fi
             echo "attempt $attempt failed (tail):"; tail -n 30 "$LOG"
+            sleep 30
           done
           if [ "$ok" -ne 1 ]; then
             echo "===== vcpkg FAILED after retries — tail of run log ====="

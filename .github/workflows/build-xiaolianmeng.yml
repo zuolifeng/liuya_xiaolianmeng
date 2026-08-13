@@ -350,7 +350,7 @@ jobs:
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
           if [ -n "$ANDROID_SIGNING_KEY" ]; then
-            printf '%s' "$ANDROID_SIGNING_KEY" | base64 -d > ./flutter/android/android_keystore.pfx
+            printf '%s' "$ANDROID_SIGNING_KEY" | base64 -d > ./flutter/android/app/android_keystore.pfx
             printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=android_keystore.pfx\nstoreType=PKCS12\n' \
               "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" \
               > ./flutter/android/key.properties

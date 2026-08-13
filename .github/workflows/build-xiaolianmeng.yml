@@ -340,28 +340,25 @@ jobs:
           esac
         shell: bash
 
-      # 配置 Android 正式签名：有 Secrets 时解码 keystore 并写 key.properties
-      - name: Setup Android release signing
-        if: ${{ secrets.ANDROID_SIGNING_KEY != '' }}
+      # 配置 Android 签名：有 ANDROID_SIGNING_KEY 时走正式签名（PKCS12），否则退化为 debug
+      # 注意：GitHub Actions 的 if: 不支持 secrets 上下文，故用 shell 内判断做分支
+      - name: Configure Android signing (release or debug fallback)
         env:
           ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
-          echo "$ANDROID_SIGNING_KEY" | base64 -d > ./flutter/android/android_keystore.pfx
-          cat > ./flutter/android/key.properties <<EOF
-          storePassword=${ANDROID_STORE_PASSWORD}
-          keyPassword=${ANDROID_KEY_PASSWORD}
-          keyAlias=${ANDROID_KEY_ALIAS}
-          storeFile=android_keystore.pfx
-          storeType=PKCS12
-          EOF
-          echo "release signing configured (PKCS12)"
-      # 未配置签名密钥时退化为 debug 签名（仅本地/测试用）
-      - name: Fallback to debug signing when no release key
-        if: ${{ secrets.ANDROID_SIGNING_KEY == '' }}
-        run: sed -i 's/signingConfigs.release/signingConfigs.debug/g' ./flutter/android/app/build.gradle
+          if [ -n "$ANDROID_SIGNING_KEY" ]; then
+            printf '%s' "$ANDROID_SIGNING_KEY" | base64 -d > ./flutter/android/android_keystore.pfx
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=android_keystore.pfx\nstoreType=PKCS12\n' \
+              "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" \
+              > ./flutter/android/key.properties
+            echo "release signing configured (PKCS12)"
+          else
+            sed -i 's/signingConfigs.release/signingConfigs.debug/g' ./flutter/android/app/build.gradle
+            echo "no release key -> debug signing fallback"
+          fi
       # 编译并打包 APK
       - name: Build rustdesk apk
         env:

@@ -354,6 +354,18 @@ jobs:
             printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=android_keystore.pfx\nstoreType=PKCS12\n' \
               "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" \
               > ./flutter/android/key.properties
+            # 早期验证：若 keystore 密码与 secret 不符（通常因 ANDROID_SIGNING_KEY 是旧/不兼容的 keystore），
+            # 立即给出明确报错，避免 5 分钟后 packageRelease 才报晦涩的 'keystore password was incorrect'
+            if command -v keytool >/dev/null 2>&1; then
+              if ! keytool -list -keystore ./flutter/android/app/android_keystore.pfx \
+                   -storepass "$ANDROID_STORE_PASSWORD" -storetype PKCS12 >/dev/null 2>&1; then
+                echo "!! KEYSTORE VERIFY FAILED: decoded keystore password != ANDROID_STORE_PASSWORD"
+                echo "!! 多半是 ANDROID_SIGNING_KEY 仍是旧版（OpenSSL3 HmacPBESHA256）keystore，Java 17 读不懂。"
+                echo "!! 请用 OpenSSL 兼容参数（-macalg sha1 -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES）重新生成并覆盖该 Secret。"
+                exit 1
+              fi
+              echo "keystore password verified OK"
+            fi
             echo "release signing configured (PKCS12)"
           else
             sed -i 's/signingConfigs.release/signingConfigs.debug/g' ./flutter/android/app/build.gradle

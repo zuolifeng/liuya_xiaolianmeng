@@ -13,6 +13,9 @@ src/version.rs
 *exe
 *tgz
 cert.pfx
+key.properties
+android_keystore.pfx
+*.jks
 *.bak
 *png
 *svg

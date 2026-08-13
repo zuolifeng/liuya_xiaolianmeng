@@ -340,6 +340,28 @@ jobs:
           esac
         shell: bash
 
+      # 配置 Android 正式签名：有 Secrets 时解码 keystore 并写 key.properties
+      - name: Setup Android release signing
+        if: ${{ secrets.ANDROID_SIGNING_KEY != '' }}
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          echo "$ANDROID_SIGNING_KEY" | base64 -d > ./flutter/android/android_keystore.pfx
+          cat > ./flutter/android/key.properties <<EOF
+          storePassword=${ANDROID_STORE_PASSWORD}
+          keyPassword=${ANDROID_KEY_PASSWORD}
+          keyAlias=${ANDROID_KEY_ALIAS}
+          storeFile=android_keystore.pfx
+          storeType=PKCS12
+          EOF
+          echo "release signing configured (PKCS12)"
+      # 未配置签名密钥时退化为 debug 签名（仅本地/测试用）
+      - name: Fallback to debug signing when no release key
+        if: ${{ secrets.ANDROID_SIGNING_KEY == '' }}
+        run: sed -i 's/signingConfigs.release/signingConfigs.debug/g' ./flutter/android/app/build.gradle
       # 编译并打包 APK
       - name: Build rustdesk apk
         env:
@@ -347,7 +369,6 @@ jobs:
         run: |
           export PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH
           sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
-          sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
           case ${{ matrix.job.target }} in
             aarch64-linux-android)
               cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/

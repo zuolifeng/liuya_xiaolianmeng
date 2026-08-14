@@ -27,6 +27,7 @@ class ServerModel with ChangeNotifier {
   bool _isStart = false; // Android MainService status
   bool _mediaOk = false;
   bool _inputOk = false;
+  bool _inputAvailable = true;
   bool _audioOk = false;
   bool _fileOk = false;
   bool _clipboardOk = false;
@@ -57,6 +58,7 @@ class ServerModel with ChangeNotifier {
   bool get mediaOk => _mediaOk;
 
   bool get inputOk => _inputOk;
+  bool get inputAvailable => _inputAvailable;
 
   bool get audioOk => _audioOk;
 
@@ -495,6 +497,9 @@ class ServerModel with ChangeNotifier {
               value: value ? defaultOptionYes : 'N');
         }
         _inputOk = value;
+        break;
+      case "input_available":
+        _inputAvailable = value;
         break;
       default:
         return;

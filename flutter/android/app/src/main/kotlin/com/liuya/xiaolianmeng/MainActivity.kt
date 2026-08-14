@@ -11,6 +11,7 @@ import ffi.FFI
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.ClipboardManager
@@ -194,6 +195,10 @@ class MainActivity : FlutterActivity() {
                     Companion.flutterMethodChannel?.invokeMethod(
                         "on_state_changed",
                         mapOf("name" to "media", "value" to MainService.isReady.toString())
+                    )
+                    Companion.flutterMethodChannel?.invokeMethod(
+                        "on_state_changed",
+                        mapOf("name" to "input_available", "value" to isInputServiceDeclared(context).toString())
                     )
                     result.success(true)
                 }

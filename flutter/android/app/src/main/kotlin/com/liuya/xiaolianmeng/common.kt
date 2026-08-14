@@ -4,6 +4,8 @@ import android.Manifest.permission.*
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.media.AudioRecord
 import android.media.AudioRecord.READ_BLOCKING
 import android.media.MediaCodecList
@@ -83,8 +85,20 @@ fun requestPermission(context: Context, type: String) {
         }
 }
 
+fun isInputServiceDeclared(context: Context): Boolean {
+    return try {
+        context.packageManager.getServiceInfo(ComponentName(context, InputService::class.java), 0)
+        true
+    } catch (e: PackageManager.NameNotFoundException) {
+        false
+    }
+}
+
 fun startAction(context: Context, action: String) {
     try {
+        if (action == ACTION_ACCESSIBILITY_SETTINGS && !isInputServiceDeclared(context)) {
+            return
+        }
         context.startActivity(Intent(action).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             // don't pass package name when launch ACTION_ACCESSIBILITY_SETTINGS
